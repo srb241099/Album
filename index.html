@@ -3,7 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Drive Album (Mobile)</title>
+  <title>Drive Album</title>
+
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#0b0c10">
+
   <style>
     :root{
       --bg:#0b0c10;
@@ -23,7 +27,6 @@
     }
     .app{height:100%; display:flex; flex-direction:column}
 
-    /* Topbar */
     .topbar{
       position:sticky; top:0; z-index:20;
       padding: calc(10px + var(--safeTop)) 12px 10px;
@@ -41,9 +44,6 @@
     .iconbtn:active{transform:scale(.98)}
     .titlewrap{flex:1; min-width:0}
     .title{font-weight:900; font-size:16px; line-height:1.1}
-
-    /* header ke niche text nahi chahiye => sub hidden */
-    .sub{display:none}
 
     .search{margin-top:10px}
     input{
@@ -110,16 +110,17 @@
 
     /* Viewer */
     .viewer{
-      position:fixed; inset:0; background:rgba(0,0,0,.92);
+      position:fixed; inset:0; background:rgba(0,0,0,.94);
       z-index:50; display:none; flex-direction:column;
-      touch-action:none;
+      touch-action: pan-y; /* allow vertical scroll when not zoomed */
     }
     .viewer.open{display:flex}
+
     .viewerbar{
       padding: calc(10px + var(--safeTop)) 12px 10px;
       display:flex; align-items:center; gap:10px;
       border-bottom:1px solid rgba(255,255,255,.10);
-      background:rgba(0,0,0,.35);
+      background:rgba(0,0,0,.38);
       backdrop-filter: blur(10px);
     }
     .viewername{
@@ -131,40 +132,50 @@
       padding:10px 12px; border-radius:14px;
       border:1px solid rgba(255,255,255,.16);
       background:rgba(255,255,255,.06);
-      color:var(--text); text-decoration:none;
+      color:var(--text);
       font-size:13px; display:flex; align-items:center; gap:8px;
       cursor:pointer;
     }
     .pill:active{transform:scale(.99)}
 
+    /* Stage is scrollable for tall photos */
     .stage{
-      flex:1; overflow:hidden;
-      display:flex; align-items:center; justify-content:center;
+      flex:1;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
       padding: 10px 10px calc(110px + var(--safeBottom));
-      position:relative;
-    }
-    .imgWrap{
-      width:100%; height:100%;
-      display:flex; align-items:center; justify-content:center;
-      overflow:hidden;
-      touch-action:none;
-      position:relative;
     }
 
-    /* Two-layer images for smooth swipe transition */
+    .imgWrap{
+      position:relative;
+      width:100%;
+      min-height:100%;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start; /* top align so tall photos start from top */
+      overflow:visible;
+      touch-action:none; /* we manage pinch/pan here */
+    }
+
+    /* Two-layer images for smooth swipe */
     .imgLayer{
-      position:absolute;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      max-width:96vw;
-      max-height:80vh;
+      width:min(96vw, 980px);
+      height:auto;
+      max-height:none;          /* IMPORTANT: no cutting */
+      display:block;
       border-radius:16px;
       background:#111;
       border:1px solid rgba(255,255,255,.12);
       user-select:none;
       -webkit-user-drag:none;
       will-change: transform, opacity;
+      transform-origin: center top;
       opacity:1;
+      position:absolute;
+      top:0;
+      left:50%;
+      transform: translate(-50%, 0);
+      transition: transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1);
     }
     #imgA{z-index:2}
     #imgB{z-index:1; opacity:0}
@@ -204,11 +215,8 @@
     }
     .toast.show{display:block}
   </style>
-  
-  <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0b0c10">
-  
 </head>
+
 <body>
 <div class="app">
   <div class="topbar">
@@ -216,7 +224,6 @@
       <div id="backBtn" class="iconbtn" style="display:none" aria-label="Back">←</div>
       <div class="titlewrap">
         <div id="pageTitle" class="title">Albums</div>
-        <div id="pageSub" class="sub"></div>
       </div>
     </div>
     <div class="search">
@@ -226,12 +233,12 @@
 
   <div class="content">
     <div id="homePage">
-      <div id="status" class="centerHint">Loading folders…</div>
+      <div id="status" class="centerHint">Loading…</div>
       <div id="folderList" class="list" style="display:none"></div>
     </div>
 
     <div id="thumbPage" style="display:none">
-      <div id="thumbStatus" class="centerHint">Loading images…</div>
+      <div id="thumbStatus" class="centerHint">Loading…</div>
       <div id="grid" class="grid" style="display:none"></div>
     </div>
   </div>
@@ -245,7 +252,7 @@
     <button id="downloadBtn" class="pill" type="button">⬇ Download</button>
   </div>
 
-  <div class="stage">
+  <div id="stage" class="stage">
     <div id="imgWrap" class="imgWrap">
       <img id="imgA" class="imgLayer" alt="photo" />
       <img id="imgB" class="imgLayer" alt="photo" />
@@ -273,7 +280,7 @@
 const API_KEY = "AIzaSyCVe5FARO84ziutXGm_prf8eGMQCMvZQPI";
 const ALBUM_FOLDER_ID = "1lzil08OmwD4N1TE4ta2ODpt8SNHb4Sal";
 
-/* Drive API list */
+/* Drive API */
 const DRIVE_LIST = "https://www.googleapis.com/drive/v3/files";
 const PAGE_SIZE = 200;
 
@@ -320,6 +327,7 @@ const el = {
   prevBtn: document.getElementById("prevBtn"),
   nextBtn: document.getElementById("nextBtn"),
 
+  stage: document.getElementById("stage"),
   imgWrap: document.getElementById("imgWrap"),
   imgA: document.getElementById("imgA"),
   imgB: document.getElementById("imgB"),
@@ -341,6 +349,12 @@ function showToast(msg){
   el.toast.textContent = msg;
   el.toast.classList.add("show");
   setTimeout(()=> el.toast.classList.remove("show"), 1400);
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[m]));
 }
 
 /* Pages */
@@ -365,7 +379,7 @@ function setPage(newPage){
 
 /* Load folders */
 async function loadFolders(){
-  el.status.textContent = "Loading folders…";
+  el.status.textContent = "Loading…";
   el.folderList.style.display = "none";
 
   const q = [
@@ -387,7 +401,7 @@ async function loadFolders(){
 
   folders = all.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   if(folders.length === 0){
-    el.status.textContent = "No folders found inside Album.";
+    el.status.textContent = "No folders found.";
     return;
   }
 
@@ -408,7 +422,7 @@ function renderFolderList(){
       <div class="badge">📁</div>
       <div class="rowtext">
         <div class="rowtitle">${escapeHtml(f.name||"(no name)")}</div>
-        <div class="rowmeta">Tap to open</div>
+        <div class="rowmeta">Tap</div>
       </div>
       <div class="chev">›</div>
     `;
@@ -416,7 +430,7 @@ function renderFolderList(){
     el.folderList.appendChild(row);
   }
   if(list.length === 0){
-    el.folderList.innerHTML = `<div class="centerHint">No matching folder.</div>`;
+    el.folderList.innerHTML = `<div class="centerHint">No results</div>`;
   }
 }
 
@@ -425,7 +439,7 @@ async function openFolder(folder){
   currentFolder = { id: folder.id, name: folder.name || "Photos" };
   setPage("thumbs");
 
-  el.thumbStatus.textContent = "Loading images…";
+  el.thumbStatus.textContent = "Loading…";
   el.grid.style.display = "none";
   el.grid.innerHTML = "";
 
@@ -456,7 +470,7 @@ async function openFolder(folder){
     }));
 
   if(images.length === 0){
-    el.thumbStatus.textContent = "No images in this folder.";
+    el.thumbStatus.textContent = "No images.";
     el.grid.style.display = "none";
     return;
   }
@@ -485,175 +499,156 @@ function renderThumbGrid(list){
     el.grid.appendChild(tile);
   }
   if(viewList.length === 0){
-    el.grid.innerHTML = `<div class="centerHint">No matching photo.</div>`;
+    el.grid.innerHTML = `<div class="centerHint">No results</div>`;
   }
 }
 
 /* =========================
-   Viewer + Zoom/Pan + Smooth swipe transition
+   Viewer: tall full + zoom/pan + smooth swipe
    ========================= */
 let scale = 1;
 let tx = 0, ty = 0;
+let activeImg = "A";
+let animating = false;
 
-let activeImg = "A"; // which layer is currently visible
-
-function clampScale(s){ return Math.max(1, Math.min(s, 5)); } // up to 5x
+function clampScale(s){ return Math.max(1, Math.min(s, 5)); }
 
 function applyTransform(){
-  // Apply transform to BOTH layers, so transition doesn't jump
-  const t = `translate(${tx}px, ${ty}px) scale(${scale})`;
-  el.imgA.style.transform = `translate(-50%,-50%) ${t}`;
-  el.imgB.style.transform = `translate(-50%,-50%) ${t}`;
+  const t = `translate(-50%, 0) translate(${tx}px, ${ty}px) scale(${scale})`;
+  el.imgA.style.transform = t;
+  el.imgB.style.transform = t;
 }
 
 function resetZoom(){
   scale = 1; tx = 0; ty = 0;
   applyTransform();
+  el.stage.style.overflow = "auto"; // allow scroll for tall images
+}
+
+function lockScrollForPan(){
+  el.stage.style.overflow = "hidden";
 }
 
 function currentItem(){ return images[currentIndex]; }
+function candidates(item){ return [item.full, item.download, item.thumb].filter(Boolean); }
 
-function getCandidates(item){
-  return [item.full, item.download, item.thumb].filter(Boolean);
-}
-
-function setLayerOpacity(showA){
+function setOpacity(showA){
   el.imgA.style.opacity = showA ? "1" : "0";
   el.imgB.style.opacity = showA ? "0" : "1";
 }
 
-function setLayerTransition(on){
-  const v = on ? "transform 260ms ease, opacity 260ms ease" : "none";
-  el.imgA.style.transition = v;
-  el.imgB.style.transition = v;
-}
-
-/* Load image into a layer with fallback */
-function loadInto(imgEl, candidates, idx=0){
-  return new Promise((resolve, reject) => {
-    if(idx >= candidates.length) return reject(new Error("blocked"));
-    imgEl.onload = () => resolve(candidates[idx]);
-    imgEl.onerror = () => loadInto(imgEl, candidates, idx+1).then(resolve).catch(reject);
-    imgEl.src = candidates[idx];
+function loadInto(imgEl, list, idx=0){
+  return new Promise((resolve, reject)=>{
+    if(idx >= list.length) return reject(new Error("blocked"));
+    imgEl.onload = ()=>resolve(list[idx]);
+    imgEl.onerror = ()=>loadInto(imgEl, list, idx+1).then(resolve).catch(reject);
+    imgEl.src = list[idx];
   });
 }
 
 function openViewer(index){
   if(!images.length) return;
   currentIndex = Math.max(0, Math.min(index, images.length-1));
-
   el.viewer.classList.add("open");
   el.viewer.setAttribute("aria-hidden","false");
 
-  // initial
   activeImg = "A";
-  setLayerTransition(false);
-  setLayerOpacity(true);
-  resetZoom();
+  el.imgA.style.transition = "transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
+  el.imgB.style.transition = "transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
+  setOpacity(true);
 
+  el.stage.scrollTop = 0;
+  resetZoom();
   updateViewerInstant();
 }
 
 function closeViewer(){
   el.viewer.classList.remove("open");
   el.viewer.setAttribute("aria-hidden","true");
-  el.imgA.src = "";
-  el.imgB.src = "";
+  el.imgA.src = ""; el.imgB.src = "";
+  animating = false;
 }
 
 async function updateViewerInstant(){
   const item = currentItem();
   el.viewerName.textContent = `${currentIndex+1}/${images.length} • ${item.name || ""}`;
-
-  const candidates = getCandidates(item);
   try{
-    await loadInto(el.imgA, candidates);
+    await loadInto(el.imgA, candidates(item));
     activeImg = "A";
-    setLayerOpacity(true);
+    setOpacity(true);
+    el.stage.scrollTop = 0;
+    resetZoom();
   }catch{
-    showToast("Image blocked by sharing");
+    showToast("Blocked");
   }
 }
 
-/* Smooth slide transition on next/prev */
-async function slideTo(newIndex, dir /* -1 left(prev) / +1 right(next) */){
-  if(!images.length) return;
+async function slideTo(newIndex, dir){
+  if(animating) return;
   newIndex = Math.max(0, Math.min(newIndex, images.length-1));
   if(newIndex === currentIndex) return;
 
-  const fromItem = images[currentIndex];
+  // Only slide when not zoomed (best UX)
+  if(scale > 1){ showToast("Reset zoom"); return; }
+
+  animating = true;
   const toItem = images[newIndex];
 
-  // When zoomed, keep move capability; but for slide we reset zoom for clean UX
-  resetZoom();
-
-  // Determine outgoing & incoming layers
   const outEl = (activeImg === "A") ? el.imgA : el.imgB;
   const inEl  = (activeImg === "A") ? el.imgB : el.imgA;
 
-  // Load next image into incoming layer (with fallbacks)
-  inEl.style.transition = "none";
-  outEl.style.transition = "none";
-
-  const candidates = getCandidates(toItem);
+  // Load next into incoming
   try{
-    await loadInto(inEl, candidates);
+    await loadInto(inEl, candidates(toItem));
   }catch{
-    showToast("Image blocked by sharing");
+    showToast("Blocked");
+    animating = false;
     return;
   }
 
-  // Set base transforms for slide
-  const offset = 40; // px
-  // outgoing goes opposite direction
-  const outX = (dir > 0) ? -offset : offset;
-  const inX  = (dir > 0) ? offset : -offset;
+  // Prepare positions
+  const off = 34;
+  const inX = (dir > 0) ? off : -off;
+  const outX = (dir > 0) ? -off : off;
 
-  // start state
-  outEl.style.opacity = "1";
+  // Start state
+  inEl.style.transition = "none";
+  outEl.style.transition = "none";
   inEl.style.opacity = "0";
-  // Both already have translate(-50%,-50%) + current pan/zoom transform in applyTransform()
-  // We add an extra translateX via CSS variable trick using inline transform:
-  // easiest: temporarily adjust tx without losing pan => use extra translate in style
-  outEl.style.transform = `translate(-50%,-50%) translate(${tx + 0}px, ${ty + 0}px) scale(${scale})`;
-  inEl.style.transform  = `translate(-50%,-50%) translate(${tx + inX}px, ${ty + 0}px) scale(${scale})`;
+  outEl.style.opacity = "1";
 
-  // animate
-  setTimeout(() => {
-    outEl.style.transition = "transform 260ms ease, opacity 260ms ease";
-    inEl.style.transition  = "transform 260ms ease, opacity 260ms ease";
+  inEl.style.transform = `translate(-50%, 0) translate(${inX}px, 0px) scale(1)`;
+  outEl.style.transform = `translate(-50%, 0) translate(0px, 0px) scale(1)`;
 
+  // Force reflow then animate
+  requestAnimationFrame(()=>{
+    inEl.style.transition = "transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
+    outEl.style.transition = "transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
+
+    inEl.style.opacity = "1";
     outEl.style.opacity = "0";
-    inEl.style.opacity  = "1";
 
-    outEl.style.transform = `translate(-50%,-50%) translate(${tx + outX}px, ${ty + 0}px) scale(${scale})`;
-    inEl.style.transform  = `translate(-50%,-50%) translate(${tx + 0}px, ${ty + 0}px) scale(${scale})`;
-  }, 0);
+    inEl.style.transform = `translate(-50%, 0) translate(0px, 0px) scale(1)`;
+    outEl.style.transform = `translate(-50%, 0) translate(${outX}px, 0px) scale(1)`;
+  });
 
-  // finish
-  setTimeout(() => {
+  setTimeout(()=>{
     currentIndex = newIndex;
     el.viewerName.textContent = `${currentIndex+1}/${images.length} • ${toItem.name || ""}`;
-
-    // swap active layer
     activeImg = (activeImg === "A") ? "B" : "A";
-
-    // normalize transforms back to pan/zoom system
-    setLayerTransition(false);
-    applyTransform();
-    // show only active layer
-    setLayerOpacity(activeImg === "A");
-  }, 280);
+    setOpacity(activeImg === "A");
+    resetZoom();
+    animating = false;
+  }, 380);
 }
 
-/* Next/Prev */
 function nextPhoto(){
-  if(currentIndex >= images.length-1){ showToast("Last photo"); return; }
-  slideTo(currentIndex + 1, +1);
+  if(currentIndex >= images.length-1){ showToast("Last"); return; }
+  slideTo(currentIndex+1, +1);
 }
 function prevPhoto(){
-  if(currentIndex <= 0){ showToast("First photo"); return; }
-  slideTo(currentIndex - 1, -1);
+  if(currentIndex <= 0){ showToast("First"); return; }
+  slideTo(currentIndex-1, -1);
 }
 
 el.nextBtn.addEventListener("click", nextPhoto);
@@ -675,7 +670,7 @@ el.search.addEventListener("input", ()=>{
   else renderThumbGrid(images);
 });
 
-/* Download local: fetch blob and save */
+/* Download local */
 async function downloadCurrent(){
   const item = currentItem();
   const url = item.download || item.full || item.thumb;
@@ -683,7 +678,7 @@ async function downloadCurrent(){
 
   try{
     showToast("Downloading…");
-    const res = await fetch(url, { mode: "cors" });
+    const res = await fetch(url, { mode:"cors" });
     if(!res.ok) throw new Error("blocked");
     const blob = await res.blob();
     const a = document.createElement("a");
@@ -696,16 +691,22 @@ async function downloadCurrent(){
     URL.revokeObjectURL(objUrl);
     showToast("Saved");
   }catch{
-    showToast("Download blocked");
+    // fallback: open download url (browser will handle)
+    showToast("Opening…");
+    window.location.href = url;
   }
 }
 el.downloadBtn.addEventListener("click", downloadCurrent);
 
 /* Zoom buttons */
-el.zoomIn.addEventListener("click", ()=>{ scale = clampScale(scale + 0.25); applyTransform(); });
+el.zoomIn.addEventListener("click", ()=>{
+  scale = clampScale(scale + 0.25);
+  if(scale > 1) lockScrollForPan();
+  applyTransform();
+});
 el.zoomOut.addEventListener("click", ()=>{
   scale = clampScale(scale - 0.25);
-  if(scale === 1){ tx = 0; ty = 0; }
+  if(scale === 1){ tx = 0; ty = 0; el.stage.style.overflow="auto"; }
   applyTransform();
 });
 el.zoomReset.addEventListener("click", resetZoom);
@@ -715,114 +716,104 @@ let lastTap = 0;
 el.imgWrap.addEventListener("click", ()=>{
   const now = Date.now();
   if(now - lastTap < 300){
-    scale = (scale === 1) ? 2 : 1;
-    if(scale === 1){ tx = 0; ty = 0; }
+    if(scale === 1){ scale = 2; lockScrollForPan(); }
+    else { resetZoom(); }
     applyTransform();
   }
   lastTap = now;
 });
 
-/* Pan + pinch zoom (touch) — move after zoom ✅ */
-let isPanning = false;
-let startX = 0, startY = 0;
-let startTx = 0, startTy = 0;
+/* Pan + pinch zoom */
+let isPanning=false, pinch=false;
+let startX=0,startY=0,startTx=0,startTy=0;
+let startDist=0,startScale=1;
 
-let pinch = false;
-let startDist = 0;
-let startScale = 1;
-
-function dist(t1, t2){
-  const dx = t1.clientX - t2.clientX;
-  const dy = t1.clientY - t2.clientY;
-  return Math.hypot(dx, dy);
+function dist(t1,t2){
+  const dx=t1.clientX-t2.clientX;
+  const dy=t1.clientY-t2.clientY;
+  return Math.hypot(dx,dy);
 }
 
-el.imgWrap.addEventListener("touchstart", (e)=>{
+el.imgWrap.addEventListener("touchstart",(e)=>{
   if(!el.viewer.classList.contains("open")) return;
 
-  if(e.touches.length === 1){
-    isPanning = true; pinch = false;
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    startTx = tx; startTy = ty;
-  } else if(e.touches.length === 2){
-    pinch = true; isPanning = false;
-    startDist = dist(e.touches[0], e.touches[1]);
-    startScale = scale;
+  if(e.touches.length===1){
+    isPanning=true; pinch=false;
+    startX=e.touches[0].clientX;
+    startY=e.touches[0].clientY;
+    startTx=tx; startTy=ty;
+  }else if(e.touches.length===2){
+    pinch=true; isPanning=false;
+    startDist=dist(e.touches[0],e.touches[1]);
+    startScale=scale;
   }
-}, {passive:false});
+},{passive:false});
 
-el.imgWrap.addEventListener("touchmove", (e)=>{
+el.imgWrap.addEventListener("touchmove",(e)=>{
   if(!el.viewer.classList.contains("open")) return;
-  e.preventDefault();
 
-  if(pinch && e.touches.length === 2){
-    const d = dist(e.touches[0], e.touches[1]);
-    const factor = d / startDist;
-    scale = clampScale(startScale * factor);
+  // Only prevent default in zoom/pan/pinch mode
+  if(pinch || (isPanning && scale>1)) e.preventDefault();
+
+  if(pinch && e.touches.length===2){
+    const d=dist(e.touches[0],e.touches[1]);
+    const factor=d/startDist;
+    scale=clampScale(startScale*factor);
+    if(scale>1) lockScrollForPan();
+    else el.stage.style.overflow="auto";
     applyTransform();
     return;
   }
 
-  // move/pan when zoomed
-  if(isPanning && e.touches.length === 1 && scale > 1){
-    const x = e.touches[0].clientX;
-    const y = e.touches[0].clientY;
-    tx = startTx + (x - startX);
-    ty = startTy + (y - startY);
+  if(isPanning && e.touches.length===1 && scale>1){
+    const x=e.touches[0].clientX;
+    const y=e.touches[0].clientY;
+    tx=startTx+(x-startX);
+    ty=startTy+(y-startY);
     applyTransform();
   }
-}, {passive:false});
+},{passive:false});
 
-el.imgWrap.addEventListener("touchend", ()=>{
-  isPanning = false;
-  pinch = false;
-}, {passive:true});
+el.imgWrap.addEventListener("touchend",()=>{
+  isPanning=false; pinch=false;
+},{passive:true});
 
-/* Swipe left/right to next/prev — only when not zoomed */
-let swipeStartX = 0, swipeStartY = 0, swiping = false;
-
-el.viewer.addEventListener("touchstart", (e)=>{
+/* Swipe for next/prev (only when not zoomed) */
+let swipeStartX=0, swipeStartY=0, swiping=false;
+el.viewer.addEventListener("touchstart",(e)=>{
   if(!el.viewer.classList.contains("open")) return;
-  if(e.touches.length !== 1) return;
-  if(scale > 1) return; // zoomed => pan only
-  const t = e.touches[0];
-  swipeStartX = t.clientX; swipeStartY = t.clientY;
-  swiping = true;
-}, {passive:true});
+  if(e.touches.length!==1) return;
+  if(scale>1) return;
+  const t=e.touches[0];
+  swipeStartX=t.clientX; swipeStartY=t.clientY;
+  swiping=true;
+},{passive:true});
 
-el.viewer.addEventListener("touchend", (e)=>{
+el.viewer.addEventListener("touchend",(e)=>{
   if(!swiping) return;
-  swiping = false;
-  const t = e.changedTouches[0];
-  const dx = t.clientX - swipeStartX;
-  const dy = t.clientY - swipeStartY;
-  if(Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy)){
-    if(dx < 0) nextPhoto();
+  swiping=false;
+  const t=e.changedTouches[0];
+  const dx=t.clientX-swipeStartX;
+  const dy=t.clientY-swipeStartY;
+  if(Math.abs(dx)>55 && Math.abs(dx)>Math.abs(dy)){
+    if(dx<0) nextPhoto();
     else prevPhoto();
   }
-}, {passive:true});
+},{passive:true});
 
 /* Keyboard */
-window.addEventListener("keydown", (e)=>{
+window.addEventListener("keydown",(e)=>{
   if(!el.viewer.classList.contains("open")) return;
-  if(e.key === "Escape") closeViewer();
-  if(e.key === "ArrowRight") nextPhoto();
-  if(e.key === "ArrowLeft") prevPhoto();
+  if(e.key==="Escape") closeViewer();
+  if(e.key==="ArrowRight") nextPhoto();
+  if(e.key==="ArrowLeft") prevPhoto();
 });
-
-/* Utils */
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-  }[m]));
-}
 
 /* Boot */
 (async function init(){
   try{
     if(!API_KEY || API_KEY.includes("PASTE_")){
-      el.status.textContent = "⚠️ API_KEY missing. Paste your API key.";
+      el.status.textContent = "API_KEY missing";
       return;
     }
     await loadFolders();
@@ -832,11 +823,11 @@ function escapeHtml(s){
     el.status.textContent = "Error: " + err.message;
   }
 })();
-</script>
-  <script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js");
-  }
+
+/* PWA Service Worker register */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(console.error);
+}
 </script>
 </body>
 </html>
