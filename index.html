@@ -112,7 +112,7 @@
     .viewer{
       position:fixed; inset:0; background:rgba(0,0,0,.94);
       z-index:50; display:none; flex-direction:column;
-      touch-action: pan-y; /* allow vertical scroll when not zoomed */
+      touch-action: pan-y;
     }
     .viewer.open{display:flex}
 
@@ -138,7 +138,7 @@
     }
     .pill:active{transform:scale(.99)}
 
-    /* Stage is scrollable for tall photos */
+    /* Stage scrollable for tall photos */
     .stage{
       flex:1;
       overflow:auto;
@@ -152,16 +152,16 @@
       min-height:100%;
       display:flex;
       justify-content:center;
-      align-items:flex-start; /* top align so tall photos start from top */
+      align-items:flex-start;
       overflow:visible;
-      touch-action:none; /* we manage pinch/pan here */
+      touch-action:none;
     }
 
-    /* Two-layer images for smooth swipe */
+    /* Two-layer images for smoother slide */
     .imgLayer{
       width:min(96vw, 980px);
       height:auto;
-      max-height:none;          /* IMPORTANT: no cutting */
+      max-height:none; /* tall images will not be cut */
       display:block;
       border-radius:16px;
       background:#111;
@@ -331,6 +331,7 @@ const el = {
   imgWrap: document.getElementById("imgWrap"),
   imgA: document.getElementById("imgA"),
   imgB: document.getElementById("imgB"),
+
   zoomIn: document.getElementById("zoomIn"),
   zoomOut: document.getElementById("zoomOut"),
   zoomReset: document.getElementById("zoomReset"),
@@ -504,14 +505,29 @@ function renderThumbGrid(list){
 }
 
 /* =========================
-   Viewer: tall full + zoom/pan + smooth swipe
+   Viewer: tall full + zoom/pan + bounds + momentum + smooth swipe
    ========================= */
 let scale = 1;
 let tx = 0, ty = 0;
 let activeImg = "A";
 let animating = false;
 
+let isPanning=false, pinch=false;
+let startX=0,startY=0,startTx=0,startTy=0;
+let startDist=0,startScale=1;
+
+let lastMoveT=0, lastMoveX=0, lastMoveY=0;
+let velX=0, velY=0;
+
+let inertiaRAF = 0;
+
 function clampScale(s){ return Math.max(1, Math.min(s, 5)); }
+function currentItem(){ return images[currentIndex]; }
+function candidates(item){ return [item.full, item.download, item.thumb].filter(Boolean); }
+
+function activeImgEl(){
+  return (activeImg === "A") ? el.imgA : el.imgB;
+}
 
 function applyTransform(){
   const t = `translate(-50%, 0) translate(${tx}px, ${ty}px) scale(${scale})`;
@@ -520,17 +536,58 @@ function applyTransform(){
 }
 
 function resetZoom(){
+  stopInertia();
   scale = 1; tx = 0; ty = 0;
   applyTransform();
-  el.stage.style.overflow = "auto"; // allow scroll for tall images
+  el.stage.style.overflow = "auto"; // allow scroll for tall photos
 }
 
 function lockScrollForPan(){
   el.stage.style.overflow = "hidden";
 }
 
-function currentItem(){ return images[currentIndex]; }
-function candidates(item){ return [item.full, item.download, item.thumb].filter(Boolean); }
+function clampPan(){
+  if (scale <= 1) { tx = 0; ty = 0; return; }
+
+  const img = activeImgEl();
+  const rect = img.getBoundingClientRect();
+  const stageRect = el.stage.getBoundingClientRect();
+
+  const extraX = Math.max(0, (rect.width - stageRect.width) / 2);
+  const extraY = Math.max(0, (rect.height - stageRect.height) / 2);
+
+  tx = Math.max(-extraX, Math.min(extraX, tx));
+  ty = Math.max(-extraY, Math.min(extraY, ty));
+}
+
+function stopInertia(){
+  if(inertiaRAF) cancelAnimationFrame(inertiaRAF);
+  inertiaRAF = 0;
+}
+
+function startInertia(vx, vy){
+  stopInertia();
+  const friction = 0.92;
+  const minV = 0.08;
+
+  const step = () => {
+    vx *= friction;
+    vy *= friction;
+
+    tx += vx;
+    ty += vy;
+
+    clampPan();
+    applyTransform();
+
+    if (Math.abs(vx) < minV && Math.abs(vy) < minV) {
+      stopInertia();
+      return;
+    }
+    inertiaRAF = requestAnimationFrame(step);
+  };
+  inertiaRAF = requestAnimationFrame(step);
+}
 
 function setOpacity(showA){
   el.imgA.style.opacity = showA ? "1" : "0";
@@ -553,8 +610,6 @@ function openViewer(index){
   el.viewer.setAttribute("aria-hidden","false");
 
   activeImg = "A";
-  el.imgA.style.transition = "transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
-  el.imgB.style.transition = "transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
   setOpacity(true);
 
   el.stage.scrollTop = 0;
@@ -567,6 +622,7 @@ function closeViewer(){
   el.viewer.setAttribute("aria-hidden","true");
   el.imgA.src = ""; el.imgB.src = "";
   animating = false;
+  stopInertia();
 }
 
 async function updateViewerInstant(){
@@ -588,7 +644,7 @@ async function slideTo(newIndex, dir){
   newIndex = Math.max(0, Math.min(newIndex, images.length-1));
   if(newIndex === currentIndex) return;
 
-  // Only slide when not zoomed (best UX)
+  // For best UX: only swipe when not zoomed
   if(scale > 1){ showToast("Reset zoom"); return; }
 
   animating = true;
@@ -597,7 +653,6 @@ async function slideTo(newIndex, dir){
   const outEl = (activeImg === "A") ? el.imgA : el.imgB;
   const inEl  = (activeImg === "A") ? el.imgB : el.imgA;
 
-  // Load next into incoming
   try{
     await loadInto(inEl, candidates(toItem));
   }catch{
@@ -606,12 +661,10 @@ async function slideTo(newIndex, dir){
     return;
   }
 
-  // Prepare positions
   const off = 34;
   const inX = (dir > 0) ? off : -off;
   const outX = (dir > 0) ? -off : off;
 
-  // Start state
   inEl.style.transition = "none";
   outEl.style.transition = "none";
   inEl.style.opacity = "0";
@@ -620,7 +673,6 @@ async function slideTo(newIndex, dir){
   inEl.style.transform = `translate(-50%, 0) translate(${inX}px, 0px) scale(1)`;
   outEl.style.transform = `translate(-50%, 0) translate(0px, 0px) scale(1)`;
 
-  // Force reflow then animate
   requestAnimationFrame(()=>{
     inEl.style.transition = "transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
     outEl.style.transition = "transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
@@ -651,6 +703,7 @@ function prevPhoto(){
   slideTo(currentIndex-1, -1);
 }
 
+/* Buttons */
 el.nextBtn.addEventListener("click", nextPhoto);
 el.prevBtn.addEventListener("click", prevPhoto);
 el.viewerClose.addEventListener("click", closeViewer);
@@ -691,7 +744,6 @@ async function downloadCurrent(){
     URL.revokeObjectURL(objUrl);
     showToast("Saved");
   }catch{
-    // fallback: open download url (browser will handle)
     showToast("Opening…");
     window.location.href = url;
   }
@@ -702,12 +754,13 @@ el.downloadBtn.addEventListener("click", downloadCurrent);
 el.zoomIn.addEventListener("click", ()=>{
   scale = clampScale(scale + 0.25);
   if(scale > 1) lockScrollForPan();
+  clampPan();
   applyTransform();
 });
 el.zoomOut.addEventListener("click", ()=>{
   scale = clampScale(scale - 0.25);
-  if(scale === 1){ tx = 0; ty = 0; el.stage.style.overflow="auto"; }
-  applyTransform();
+  if(scale === 1){ resetZoom(); }
+  else { lockScrollForPan(); clampPan(); applyTransform(); }
 });
 el.zoomReset.addEventListener("click", resetZoom);
 
@@ -716,18 +769,19 @@ let lastTap = 0;
 el.imgWrap.addEventListener("click", ()=>{
   const now = Date.now();
   if(now - lastTap < 300){
-    if(scale === 1){ scale = 2; lockScrollForPan(); }
-    else { resetZoom(); }
-    applyTransform();
+    if(scale === 1){
+      scale = 2;
+      lockScrollForPan();
+      clampPan();
+      applyTransform();
+    } else {
+      resetZoom();
+    }
   }
   lastTap = now;
 });
 
-/* Pan + pinch zoom */
-let isPanning=false, pinch=false;
-let startX=0,startY=0,startTx=0,startTy=0;
-let startDist=0,startScale=1;
-
+/* Pinch + Pan with momentum */
 function dist(t1,t2){
   const dx=t1.clientX-t2.clientX;
   const dy=t1.clientY-t2.clientY;
@@ -737,11 +791,18 @@ function dist(t1,t2){
 el.imgWrap.addEventListener("touchstart",(e)=>{
   if(!el.viewer.classList.contains("open")) return;
 
+  stopInertia();
+  velX = 0; velY = 0;
+
   if(e.touches.length===1){
     isPanning=true; pinch=false;
     startX=e.touches[0].clientX;
     startY=e.touches[0].clientY;
     startTx=tx; startTy=ty;
+
+    lastMoveT = Date.now();
+    lastMoveX = startX;
+    lastMoveY = startY;
   }else if(e.touches.length===2){
     pinch=true; isPanning=false;
     startDist=dist(e.touches[0],e.touches[1]);
@@ -752,15 +813,17 @@ el.imgWrap.addEventListener("touchstart",(e)=>{
 el.imgWrap.addEventListener("touchmove",(e)=>{
   if(!el.viewer.classList.contains("open")) return;
 
-  // Only prevent default in zoom/pan/pinch mode
   if(pinch || (isPanning && scale>1)) e.preventDefault();
 
   if(pinch && e.touches.length===2){
     const d=dist(e.touches[0],e.touches[1]);
     const factor=d/startDist;
     scale=clampScale(startScale*factor);
+
     if(scale>1) lockScrollForPan();
     else el.stage.style.overflow="auto";
+
+    clampPan();
     applyTransform();
     return;
   }
@@ -768,17 +831,32 @@ el.imgWrap.addEventListener("touchmove",(e)=>{
   if(isPanning && e.touches.length===1 && scale>1){
     const x=e.touches[0].clientX;
     const y=e.touches[0].clientY;
-    tx=startTx+(x-startX);
-    ty=startTy+(y-startY);
+
+    tx = startTx + (x - startX);
+    ty = startTy + (y - startY);
+
+    const now = Date.now();
+    const dt = Math.max(1, now - lastMoveT);
+    velX = (x - lastMoveX) / dt * 16;
+    velY = (y - lastMoveY) / dt * 16;
+
+    lastMoveT = now;
+    lastMoveX = x;
+    lastMoveY = y;
+
+    clampPan();
     applyTransform();
   }
 },{passive:false});
 
 el.imgWrap.addEventListener("touchend",()=>{
+  if(scale > 1){
+    startInertia(velX, velY);
+  }
   isPanning=false; pinch=false;
 },{passive:true});
 
-/* Swipe for next/prev (only when not zoomed) */
+/* Swipe next/prev only when not zoomed */
 let swipeStartX=0, swipeStartY=0, swiping=false;
 el.viewer.addEventListener("touchstart",(e)=>{
   if(!el.viewer.classList.contains("open")) return;
@@ -824,9 +902,12 @@ window.addEventListener("keydown",(e)=>{
   }
 })();
 
-/* PWA Service Worker register */
+/* Strong PWA Service Worker register (fix install option) */
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js").catch(console.error);
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/Album/sw.js", { scope: "/Album/" })
+      .catch(console.error);
+  });
 }
 </script>
 </body>
