@@ -204,6 +204,10 @@
     }
     .toast.show{display:block}
   </style>
+  
+  <link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0b0c10">
+  
 </head>
 <body>
 <div class="app">
@@ -828,6 +832,11 @@ function escapeHtml(s){
     el.status.textContent = "Error: " + err.message;
   }
 })();
+</script>
+  <script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js");
+  }
 </script>
 </body>
 </html>
