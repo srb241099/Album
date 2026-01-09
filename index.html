@@ -817,11 +817,11 @@ function unlockAlbum(){
 }
 
 // auto-unlock if already unlocked
-if(localStorage.getItem("albumUnlocked") === "yes"){
-  document.addEventListener("DOMContentLoaded", ()=>{
+document.addEventListener("DOMContentLoaded", ()=>{
+  if(localStorage.getItem("albumUnlocked") === "yes"){
     document.getElementById("lockScreen").style.display = "none";
-  });
-}
+  }
+});
   
 /* Pinch + Pan with momentum */
 function dist(t1,t2){
