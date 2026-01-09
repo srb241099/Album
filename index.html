@@ -218,6 +218,28 @@
 </head>
 
 <body>
+
+  <div id="lockScreen" style="
+  position:fixed; inset:0;
+  background:#0b0c10;
+  display:flex; align-items:center; justify-content:center;
+  z-index:9999;
+">
+  <div style="width:90%; max-width:320px; text-align:center;">
+    <h2 style="color:#fff; margin-bottom:12px;">🔒 Private Album</h2>
+    <input id="pwdInput" type="password" placeholder="Enter password"
+      style="width:100%; padding:12px; border-radius:12px; border:none; margin-bottom:12px;">
+    <button onclick="unlockAlbum()"
+      style="width:100%; padding:12px; border-radius:12px; border:none;
+      background:#2563eb; color:#fff; font-weight:bold;">
+      Unlock
+    </button>
+    <p id="pwdError" style="color:#f87171; margin-top:10px; display:none;">
+      Wrong password
+    </p>
+  </div>
+</div>
+  
 <div class="app">
   <div class="topbar">
     <div class="toprow">
@@ -278,6 +300,7 @@
    EDIT ONLY THIS API KEY
    ========================= */
 const API_KEY = "AIzaSyCVe5FARO84ziutXGm_prf8eGMQCMvZQPI";
+const ALBUM_PASSWORD = "9650"; // <-- apna password yahan set karo
 const ALBUM_FOLDER_ID = "1lzil08OmwD4N1TE4ta2ODpt8SNHb4Sal";
 
 /* Drive API */
@@ -781,6 +804,25 @@ el.imgWrap.addEventListener("click", ()=>{
   lastTap = now;
 });
 
+function unlockAlbum(){
+  const input = document.getElementById("pwdInput").value;
+  const err = document.getElementById("pwdError");
+
+  if(input === ALBUM_PASSWORD){
+    document.getElementById("lockScreen").style.display = "none";
+    localStorage.setItem("albumUnlocked", "yes");
+  }else{
+    err.style.display = "block";
+  }
+}
+
+// auto-unlock if already unlocked
+if(localStorage.getItem("albumUnlocked") === "yes"){
+  document.addEventListener("DOMContentLoaded", ()=>{
+    document.getElementById("lockScreen").style.display = "none";
+  });
+}
+  
 /* Pinch + Pan with momentum */
 function dist(t1,t2){
   const dx=t1.clientX-t2.clientX;
