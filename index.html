@@ -570,6 +570,11 @@
 const API_KEY = "AIzaSyCVe5FARO84ziutXGm_prf8eGMQCMvZQPI";
 const ALBUM_FOLDER_ID = "1lzil08OmwD4N1TE4ta2ODpt8SNHb4Sal";
 const ALBUM_PIN = "9650"; // 4 digits
+// ✅ Sub-folder locks (folderId : pin)
+const FOLDER_LOCKS = {
+  "1J1oauMjE_oq82f8-UuQVR_g-YYN9NNfb": "2410",
+  // "ANOTHER_SUBFOLDER_ID": "9999",
+};  
 
 /* =========================
    PIN LOCK (Keypad)
@@ -732,7 +737,88 @@ function escapeHtml(s){
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
   }[m]));
 }
+function askFolderPin(correctPin, folderName){
+  return new Promise((resolve)=>{
+    let input = "";
+    const overlay = document.createElement("div");
+    overlay.style.position="fixed";
+    overlay.style.inset="0";
+    overlay.style.zIndex="10000";
+    overlay.style.background="rgba(0,0,0,.85)";
+    overlay.style.display="flex";
+    overlay.style.alignItems="center";
+    overlay.style.justifyContent="center";
+    overlay.style.padding="18px";
 
+    overlay.innerHTML = `
+      <div style="width:min(420px,100%); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); border-radius:18px; padding:14px; backdrop-filter: blur(10px);">
+        <div style="font-weight:900; text-align:center; font-size:16px;">🔒 ${escapeHtml(folderName)}</div>
+        <div id="fpMsg" style="text-align:center; margin-top:8px; color:rgba(255,255,255,.75); font-size:12px; min-height:18px;">Enter 4-digit PIN</div>
+        <div id="fpDots" style="display:flex; justify-content:center; gap:10px; margin:12px 0;">
+          <div style="width:12px;height:12px;border-radius:999px;border:1px solid rgba(255,255,255,.25)"></div>
+          <div style="width:12px;height:12px;border-radius:999px;border:1px solid rgba(255,255,255,.25)"></div>
+          <div style="width:12px;height:12px;border-radius:999px;border:1px solid rgba(255,255,255,.25)"></div>
+          <div style="width:12px;height:12px;border-radius:999px;border:1px solid rgba(255,255,255,.25)"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
+          ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="fpKey" data-k="${n}" style="height:54px;border-radius:16px;border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.06); color:#fff; font-weight:900; font-size:18px;">${n}</button>`).join("")}
+          <button class="fpKey" data-k="clr" style="height:54px;border-radius:16px;border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.06); color:#fff; font-weight:900;">Clear</button>
+          <button class="fpKey" data-k="0" style="height:54px;border-radius:16px;border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.06); color:#fff; font-weight:900; font-size:18px;">0</button>
+          <button class="fpKey" data-k="del" style="height:54px;border-radius:16px;border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.06); color:#fff; font-weight:900;">⌫</button>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button id="fpCancel" style="flex:1;height:46px;border-radius:16px;border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.06); color:#fff; font-weight:900;">Cancel</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const msg = overlay.querySelector("#fpMsg");
+    const dots = [...overlay.querySelectorAll("#fpDots > div")];
+
+    function render(){
+      dots.forEach((d,i)=>{
+        d.style.background = (i < input.length) ? "rgba(255,255,255,.85)" : "transparent";
+      });
+    }
+    function wrong(){
+      msg.textContent = "Wrong PIN";
+      msg.style.color = "#f87171";
+      overlay.firstElementChild.animate(
+        [{transform:"translateX(0)"},{transform:"translateX(-8px)"},{transform:"translateX(8px)"},{transform:"translateX(0)"}],
+        {duration:220}
+      );
+      input = "";
+      render();
+    }
+    function done(ok){
+      overlay.remove();
+      resolve(ok);
+    }
+
+    overlay.addEventListener("click",(e)=>{
+      if(e.target.id === "fpCancel") return done(false);
+      const btn = e.target.closest(".fpKey");
+      if(!btn) return;
+      const k = btn.dataset.k;
+
+      msg.textContent = "Enter 4-digit PIN";
+      msg.style.color = "rgba(255,255,255,.75)";
+
+      if(k==="clr"){ input=""; render(); return; }
+      if(k==="del"){ input=input.slice(0,-1); render(); return; }
+      if(input.length < 4){
+        input += k;
+        render();
+        if(input.length === 4){
+          if(input === String(correctPin)) done(true);
+          else wrong();
+        }
+      }
+    });
+  });
+}
 /* =========================
    GAME: Tic Tac Toe (AI + Two Player)
    + Winner red line animation
@@ -1061,7 +1147,12 @@ function renderFolderList(){
   if(list.length === 0) el.folderList.innerHTML = `<div class="centerHint">No results</div>`;
 }
 
-async function openFolder(folder){
+async function openFolder(folder){  // ✅ If this sub-folder is locked, ask PIN
+  const lockPin = FOLDER_LOCKS[folder.id];
+  if (lockPin) {
+    const ok = await askFolderPin(lockPin, folder.name || "Locked Folder");
+    if (!ok) return;
+  }
   currentFolder = { id: folder.id, name: folder.name || "Photos" };
   setPage("thumbs");
 
