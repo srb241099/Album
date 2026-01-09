@@ -808,13 +808,11 @@ function unlockAlbum(){
   const input = document.getElementById("pwdInput").value;
   const err = document.getElementById("pwdError");
 
-  if(input === ALBUM_PASSWORD){
+  document.addEventListener("DOMContentLoaded", ()=>{
+  if(localStorage.getItem("albumUnlocked") === "yes"){
     document.getElementById("lockScreen").style.display = "none";
-    localStorage.setItem("albumUnlocked", "yes");
-  }else{
-    err.style.display = "block";
   }
-}
+});
 
 // auto-unlock if already unlocked
 document.addEventListener("DOMContentLoaded", ()=>{
