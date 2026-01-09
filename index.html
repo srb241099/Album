@@ -157,11 +157,10 @@
       touch-action:none;
     }
 
-    /* Two-layer images for smoother slide */
     .imgLayer{
       width:min(96vw, 980px);
       height:auto;
-      max-height:none; /* tall images will not be cut */
+      max-height:none;
       display:block;
       border-radius:16px;
       background:#111;
@@ -214,33 +213,122 @@
       backdrop-filter: blur(10px);
     }
     .toast.show{display:block}
+
+    /* =========================
+       PIN LOCK SCREEN (Keypad UI)
+       ========================= */
+    .lock{
+      position:fixed; inset:0;
+      background:rgba(11,12,16,.98);
+      display:flex; align-items:center; justify-content:center;
+      z-index:9999;
+      padding: calc(20px + var(--safeTop)) 16px calc(20px + var(--safeBottom));
+    }
+    .lockCard{
+      width:min(420px, 100%);
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.04);
+      border-radius:20px;
+      padding:16px;
+      backdrop-filter: blur(10px);
+    }
+    .lockTitle{
+      font-weight:900;
+      text-align:center;
+      font-size:18px;
+      margin:6px 0 12px;
+    }
+    .pinDots{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      margin:10px 0 14px;
+    }
+    .dot{
+      width:12px; height:12px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.25);
+      background:rgba(255,255,255,.06);
+    }
+    .dot.filled{background:rgba(255,255,255,.85)}
+    .lockMsg{
+      text-align:center;
+      color:var(--muted);
+      font-size:12px;
+      min-height:18px;
+      margin-bottom:10px;
+    }
+    .keypad{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:10px;
+    }
+    .key{
+      height:54px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font-weight:900;
+      font-size:18px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .key:active{transform:scale(.99)}
+    .key.small{font-size:14px; font-weight:800}
+    .lockRow{
+      display:flex;
+      gap:10px;
+      margin-top:10px;
+    }
+    .lockRow .pill{
+      flex:1;
+      justify-content:center;
+      height:46px;
+    }
   </style>
 </head>
 
 <body>
 
-  <div id="lockScreen" style="
-  position:fixed; inset:0;
-  background:#0b0c10;
-  display:flex; align-items:center; justify-content:center;
-  z-index:9999;
-">
-  <div style="width:90%; max-width:320px; text-align:center;">
-    <h2 style="color:#fff; margin-bottom:12px;">🔒 Private Album</h2>
-    <input id="pwdInput" type="password" placeholder="Enter password"
-      style="width:100%; padding:12px; border-radius:12px; border:none; margin-bottom:12px;">
-    <button onclick="unlockAlbum()"
-      style="width:100%; padding:12px; border-radius:12px; border:none;
-      background:#2563eb; color:#fff; font-weight:bold;">
-      Unlock
-    </button>
-    <p id="pwdError" style="color:#f87171; margin-top:10px; display:none;">
-      Wrong password
-    </p>
+<!-- PIN Lock Screen -->
+<div id="lockScreen" class="lock" aria-hidden="false">
+  <div class="lockCard">
+    <div class="lockTitle">🔒 Private Album</div>
+
+    <div class="pinDots" aria-label="PIN dots">
+      <div class="dot" id="dot1"></div>
+      <div class="dot" id="dot2"></div>
+      <div class="dot" id="dot3"></div>
+      <div class="dot" id="dot4"></div>
+    </div>
+
+    <div class="lockMsg" id="lockMsg">Enter 4-digit PIN</div>
+
+    <div class="keypad">
+      <button class="key" data-k="1">1</button>
+      <button class="key" data-k="2">2</button>
+      <button class="key" data-k="3">3</button>
+      <button class="key" data-k="4">4</button>
+      <button class="key" data-k="5">5</button>
+      <button class="key" data-k="6">6</button>
+      <button class="key" data-k="7">7</button>
+      <button class="key" data-k="8">8</button>
+      <button class="key" data-k="9">9</button>
+
+      <button class="key small" data-k="clr">Clear</button>
+      <button class="key" data-k="0">0</button>
+      <button class="key small" data-k="del">⌫</button>
+    </div>
+
+    <div class="lockRow">
+      <button id="lockNowBtn" class="pill" type="button" style="display:none;">🔒 Lock</button>
+      <button id="unlockBtn" class="pill" type="button">Unlock</button>
+    </div>
   </div>
 </div>
-  
-<div class="app">
+
+<div class="app" id="appRoot" style="filter: blur(0px);">
   <div class="topbar">
     <div class="toprow">
       <div id="backBtn" class="iconbtn" style="display:none" aria-label="Back">←</div>
@@ -297,13 +385,120 @@
 
 <script>
 /* =========================
-   EDIT ONLY THIS API KEY
+   EDIT ONLY API KEY + PIN
    ========================= */
 const API_KEY = "AIzaSyCVe5FARO84ziutXGm_prf8eGMQCMvZQPI";
-const ALBUM_PASSWORD = "9650"; // <-- apna password yahan set karo
 const ALBUM_FOLDER_ID = "1lzil08OmwD4N1TE4ta2ODpt8SNHb4Sal";
 
-/* Drive API */
+// PIN: set your 4 digits (numbers only)
+const ALBUM_PIN = "9650";
+
+/* =========================
+   PIN LOCK LOGIC (Keypad)
+   ========================= */
+let enteredPin = "";
+
+const lockEl = document.getElementById("lockScreen");
+const lockMsg = document.getElementById("lockMsg");
+const dots = [
+  document.getElementById("dot1"),
+  document.getElementById("dot2"),
+  document.getElementById("dot3"),
+  document.getElementById("dot4"),
+];
+
+function renderDots(){
+  dots.forEach((d,i)=> d.classList.toggle("filled", i < enteredPin.length));
+}
+
+function setLockMsg(msg, isError=false){
+  lockMsg.textContent = msg;
+  lockMsg.style.color = isError ? "#f87171" : "rgba(255,255,255,.7)";
+}
+
+function clearPin(){
+  enteredPin = "";
+  renderDots();
+}
+
+function hideLock(){
+  lockEl.style.display = "none";
+  lockEl.setAttribute("aria-hidden","true");
+}
+
+function showLock(){
+  lockEl.style.display = "flex";
+  lockEl.setAttribute("aria-hidden","false");
+  clearPin();
+  setLockMsg("Enter 4-digit PIN");
+}
+
+function tryUnlock(){
+  if(enteredPin.length !== 4){
+    setLockMsg("Enter 4 digits", true);
+    return;
+  }
+  if(enteredPin === ALBUM_PIN){
+    hideLock();
+    setLockMsg("Enter 4-digit PIN");
+  }else{
+    setLockMsg("Wrong PIN", true);
+    // shake effect
+    lockEl.querySelector(".lockCard").animate(
+      [{transform:"translateX(0)"},{transform:"translateX(-8px)"},{transform:"translateX(8px)"},{transform:"translateX(0)"}],
+      {duration:220}
+    );
+    clearPin();
+  }
+}
+
+document.querySelectorAll(".key").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    const k = btn.dataset.k;
+    if(k === "clr"){
+      clearPin();
+      setLockMsg("Enter 4-digit PIN");
+      return;
+    }
+    if(k === "del"){
+      enteredPin = enteredPin.slice(0, -1);
+      renderDots();
+      setLockMsg("Enter 4-digit PIN");
+      return;
+    }
+    if(enteredPin.length < 4){
+      enteredPin += k;
+      renderDots();
+      if(enteredPin.length === 4) tryUnlock();
+    }
+  });
+});
+
+document.getElementById("unlockBtn").addEventListener("click", tryUnlock);
+
+// Optional: keyboard support on desktop
+window.addEventListener("keydown", (e)=>{
+  if(lockEl.style.display === "none") return;
+  if(e.key >= "0" && e.key <= "9"){
+    if(enteredPin.length < 4){
+      enteredPin += e.key;
+      renderDots();
+      if(enteredPin.length === 4) tryUnlock();
+    }
+  } else if(e.key === "Backspace"){
+    enteredPin = enteredPin.slice(0, -1);
+    renderDots();
+  } else if(e.key === "Enter"){
+    tryUnlock();
+  } else if(e.key === "Escape"){
+    clearPin();
+    setLockMsg("Enter 4-digit PIN");
+  }
+});
+
+/* =========================
+   Drive API
+   ========================= */
 const DRIVE_LIST = "https://www.googleapis.com/drive/v3/files";
 const PAGE_SIZE = 200;
 
@@ -541,16 +736,11 @@ let startDist=0,startScale=1;
 
 let lastMoveT=0, lastMoveX=0, lastMoveY=0;
 let velX=0, velY=0;
-
 let inertiaRAF = 0;
 
 function clampScale(s){ return Math.max(1, Math.min(s, 5)); }
 function currentItem(){ return images[currentIndex]; }
 function candidates(item){ return [item.full, item.download, item.thumb].filter(Boolean); }
-
-function activeImgEl(){
-  return (activeImg === "A") ? el.imgA : el.imgB;
-}
 
 function applyTransform(){
   const t = `translate(-50%, 0) translate(${tx}px, ${ty}px) scale(${scale})`;
@@ -558,15 +748,24 @@ function applyTransform(){
   el.imgB.style.transform = t;
 }
 
+function stopInertia(){
+  if(inertiaRAF) cancelAnimationFrame(inertiaRAF);
+  inertiaRAF = 0;
+}
+
 function resetZoom(){
   stopInertia();
   scale = 1; tx = 0; ty = 0;
   applyTransform();
-  el.stage.style.overflow = "auto"; // allow scroll for tall photos
+  el.stage.style.overflow = "auto";
 }
 
 function lockScrollForPan(){
   el.stage.style.overflow = "hidden";
+}
+
+function activeImgEl(){
+  return (activeImg === "A") ? el.imgA : el.imgB;
 }
 
 function clampPan(){
@@ -581,11 +780,6 @@ function clampPan(){
 
   tx = Math.max(-extraX, Math.min(extraX, tx));
   ty = Math.max(-extraY, Math.min(extraY, ty));
-}
-
-function stopInertia(){
-  if(inertiaRAF) cancelAnimationFrame(inertiaRAF);
-  inertiaRAF = 0;
 }
 
 function startInertia(vx, vy){
@@ -667,7 +861,6 @@ async function slideTo(newIndex, dir){
   newIndex = Math.max(0, Math.min(newIndex, images.length-1));
   if(newIndex === currentIndex) return;
 
-  // For best UX: only swipe when not zoomed
   if(scale > 1){ showToast("Reset zoom"); return; }
 
   animating = true;
@@ -804,23 +997,6 @@ el.imgWrap.addEventListener("click", ()=>{
   lastTap = now;
 });
 
-function unlockAlbum(){
-  const input = document.getElementById("pwdInput").value;
-  const err = document.getElementById("pwdError");
-
-  document.addEventListener("DOMContentLoaded", ()=>{
-  if(localStorage.getItem("albumUnlocked") === "yes"){
-    document.getElementById("lockScreen").style.display = "none";
-  }
-});
-
-// auto-unlock if already unlocked
-document.addEventListener("DOMContentLoaded", ()=>{
-  if(localStorage.getItem("albumUnlocked") === "yes"){
-    document.getElementById("lockScreen").style.display = "none";
-  }
-});
-  
 /* Pinch + Pan with momentum */
 function dist(t1,t2){
   const dx=t1.clientX-t2.clientX;
@@ -942,7 +1118,7 @@ window.addEventListener("keydown",(e)=>{
   }
 })();
 
-/* Strong PWA Service Worker register (fix install option) */
+/* Strong PWA Service Worker register (helps install option) */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/Album/sw.js", { scope: "/Album/" })
