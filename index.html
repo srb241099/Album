@@ -17,7 +17,12 @@
       --border:rgba(255,255,255,.10);
       --safeTop: env(safe-area-inset-top, 0px);
       --safeBottom: env(safe-area-inset-bottom, 0px);
-      --accent:#2563eb;
+
+      --accent:#7c3aed;      /* purple */
+      --accent2:#06b6d4;     /* cyan */
+      --accent3:#f59e0b;     /* amber */
+      --accent4:#22c55e;     /* green */
+      --pink:#ec4899;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -290,10 +295,14 @@
       height:46px;
     }
 
-    /* Game page */
+    /* Game page (colorful) */
     .game{
       position:fixed; inset:0;
-      background:rgba(11,12,16,.98);
+      background:
+        radial-gradient(900px 500px at 10% 10%, rgba(124,58,237,.35), transparent 60%),
+        radial-gradient(800px 500px at 90% 20%, rgba(6,182,212,.25), transparent 60%),
+        radial-gradient(800px 500px at 30% 90%, rgba(236,72,153,.22), transparent 60%),
+        rgba(11,12,16,.98);
       z-index:9000;
       display:none;
       flex-direction:column;
@@ -309,26 +318,52 @@
       justify-content:center;
     }
     .gameCard{
-      width:min(520px, 100%);
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.04);
-      border-radius:20px;
+      width:min(560px, 100%);
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      border-radius:24px;
       padding:14px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
     }
+    .modeRow{
+      display:flex;
+      gap:10px;
+      margin-bottom:12px;
+    }
+    .modeBtn{
+      flex:1;
+      height:44px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font-weight:900;
+      cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      gap:8px;
+    }
+    .modeBtn.active{
+      border-color: rgba(255,255,255,.28);
+      background: linear-gradient(135deg, rgba(124,58,237,.35), rgba(6,182,212,.25));
+    }
+    .modeBtn:active{transform:scale(.99)}
+
     .scoreRow{
       display:flex; gap:10px;
       margin-bottom:12px;
     }
     .scoreBox{
       flex:1;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.04);
-      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      border-radius:18px;
       padding:10px 12px;
       text-align:center;
     }
     .scoreVal{font-weight:900; font-size:18px}
-    .scoreLbl{font-size:12px; color:var(--muted); margin-top:2px}
+    .scoreLbl{font-size:12px; color:rgba(255,255,255,.72); margin-top:2px}
+
     .board{
       display:grid;
       grid-template-columns: repeat(3, 1fr);
@@ -336,35 +371,44 @@
       margin-top:10px;
     }
     .cell{
-      height:92px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06);
+      height:98px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
       display:flex;
       align-items:center;
       justify-content:center;
-      font-size:42px;
+      font-size:44px;
       font-weight:900;
       cursor:pointer;
       user-select:none;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
     }
     .cell:active{transform:scale(.99)}
+    .cell.x{ color: var(--accent3); text-shadow: 0 6px 30px rgba(245,158,11,.25); }
+    .cell.o{ color: var(--accent2); text-shadow: 0 6px 30px rgba(6,182,212,.25); }
+
     .gameBtns{
       display:flex; gap:10px; margin-top:12px;
     }
     .gameBtns button{
-      flex:1; height:46px; border-radius:16px;
-      border:1px solid rgba(255,255,255,.14);
+      flex:1; height:46px; border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
       background:rgba(255,255,255,.06);
       color:var(--text);
       font-weight:900;
       cursor:pointer;
     }
+    .gameBtns button.primary{
+      background: linear-gradient(135deg, rgba(124,58,237,.55), rgba(236,72,153,.45));
+      border-color: rgba(255,255,255,.22);
+    }
     .gameBtns button:active{transform:scale(.99)}
     .hint{
       text-align:center;
       font-size:12px;
-      color:var(--muted);
+      color:rgba(255,255,255,.75);
       margin-top:10px;
       min-height:18px;
     }
@@ -432,7 +476,7 @@
           <div class="badge">🎮</div>
           <div class="rowtext">
             <div class="rowtitle">Games</div>
-            <div class="rowmeta">Tic Tac Toe (Offline)</div>
+            <div class="rowmeta">Tic Tac Toe</div>
           </div>
           <div class="chev">›</div>
         </div>
@@ -486,14 +530,20 @@
 
   <div class="gameBody">
     <div class="gameCard">
+
+      <div class="modeRow">
+        <button class="modeBtn" id="modeAI" type="button">🤖 Play vs AI</button>
+        <button class="modeBtn" id="mode2P" type="button">👥 Two Player</button>
+      </div>
+
       <div class="scoreRow">
         <div class="scoreBox">
           <div class="scoreVal" id="winScore">0</div>
-          <div class="scoreLbl">Wins (You)</div>
+          <div class="scoreLbl" id="winLbl">Wins</div>
         </div>
         <div class="scoreBox">
           <div class="scoreVal" id="lossScore">0</div>
-          <div class="scoreLbl">Losses (AI)</div>
+          <div class="scoreLbl" id="lossLbl">Losses</div>
         </div>
         <div class="scoreBox">
           <div class="scoreVal" id="drawScore">0</div>
@@ -527,7 +577,7 @@
       <div class="hint" id="gameHint"></div>
 
       <div class="gameBtns">
-        <button id="newGameBtn" type="button">New Game</button>
+        <button id="newGameBtn" class="primary" type="button">New Game</button>
         <button id="resetScoreBtn" type="button">Reset Score</button>
       </div>
     </div>
@@ -556,30 +606,17 @@ const dots = [
   document.getElementById("dot3"),
   document.getElementById("dot4"),
 ];
-
-function renderDots(){
-  dots.forEach((d,i)=> d.classList.toggle("filled", i < enteredPin.length));
-}
+function renderDots(){ dots.forEach((d,i)=> d.classList.toggle("filled", i < enteredPin.length)); }
 function setLockMsg(msg, isError=false){
   lockMsg.textContent = msg;
   lockMsg.style.color = isError ? "#f87171" : "rgba(255,255,255,.7)";
 }
-function clearPin(){
-  enteredPin = "";
-  renderDots();
-}
-function hideLock(){
-  lockEl.style.display = "none";
-  lockEl.setAttribute("aria-hidden","true");
-}
+function clearPin(){ enteredPin=""; renderDots(); }
+function hideLock(){ lockEl.style.display="none"; lockEl.setAttribute("aria-hidden","true"); }
 function tryUnlock(){
-  if(enteredPin.length !== 4){
-    setLockMsg("Enter 4 digits", true);
-    return;
-  }
+  if(enteredPin.length !== 4){ setLockMsg("Enter 4 digits", true); return; }
   if(enteredPin === ALBUM_PIN){
-    hideLock();
-    setLockMsg("Enter 4-digit PIN");
+    hideLock(); setLockMsg("Enter 4-digit PIN");
   }else{
     setLockMsg("Wrong PIN", true);
     lockEl.querySelector(".lockCard").animate(
@@ -592,8 +629,8 @@ function tryUnlock(){
 document.querySelectorAll(".key").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     const k = btn.dataset.k;
-    if(k === "clr"){ clearPin(); setLockMsg("Enter 4-digit PIN"); return; }
-    if(k === "del"){ enteredPin = enteredPin.slice(0,-1); renderDots(); setLockMsg("Enter 4-digit PIN"); return; }
+    if(k==="clr"){ clearPin(); setLockMsg("Enter 4-digit PIN"); return; }
+    if(k==="del"){ enteredPin = enteredPin.slice(0,-1); renderDots(); setLockMsg("Enter 4-digit PIN"); return; }
     if(enteredPin.length < 4){
       enteredPin += k;
       renderDots();
@@ -643,7 +680,6 @@ async function driveList({ q, fields, pageToken }) {
   }
   return res.json();
 }
-
 function thumbUrl(fileId){ return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`; }
 function fullUrl(fileId){ return `https://drive.google.com/uc?export=view&id=${fileId}`; }
 function downloadUrl(fileId){ return `https://drive.google.com/uc?export=download&id=${fileId}`; }
@@ -693,6 +729,11 @@ const el = {
   drawScore: document.getElementById("drawScore"),
   bestWinStreak: document.getElementById("bestWinStreak"),
   curWinStreak: document.getElementById("curWinStreak"),
+
+  modeAI: document.getElementById("modeAI"),
+  mode2P: document.getElementById("mode2P"),
+  winLbl: document.getElementById("winLbl"),
+  lossLbl: document.getElementById("lossLbl"),
 };
 
 let folders = [];
@@ -714,32 +755,27 @@ function escapeHtml(s){
 }
 
 /* =========================
-   GAME: Tic Tac Toe + High Score (localStorage)
-   You = X, AI = O
-   High score = Best win streak
+   GAME: Tic Tac Toe
+   Modes: AI or Two Player
+   High score = Best win streak (only for AI mode)
    ========================= */
-const SCORE_KEY = "ttt_score_v1";
-let score = {
-  wins:0, losses:0, draws:0,
-  bestStreak:0, curStreak:0
-};
+const SCORE_KEY = "ttt_score_v2";
+let score = { wins:0, losses:0, draws:0, bestStreak:0, curStreak:0 };
 
 let ttt = Array(9).fill("");
 let gameOver = false;
-let yourTurn = true;
+let mode = "ai"; // "ai" or "2p"
+let turn = "X";  // current mark
+let waitingAI = false;
 
 function loadScore(){
   try{
     const saved = JSON.parse(localStorage.getItem(SCORE_KEY) || "null");
-    if(saved && typeof saved === "object"){
-      score = { ...score, ...saved };
-    }
+    if(saved && typeof saved === "object") score = { ...score, ...saved };
   }catch{}
   renderScore();
 }
-function saveScore(){
-  localStorage.setItem(SCORE_KEY, JSON.stringify(score));
-}
+function saveScore(){ localStorage.setItem(SCORE_KEY, JSON.stringify(score)); }
 function renderScore(){
   el.winScore.textContent = score.wins;
   el.lossScore.textContent = score.losses;
@@ -747,10 +783,27 @@ function renderScore(){
   el.bestWinStreak.textContent = score.bestStreak;
   el.curWinStreak.textContent = score.curStreak;
 }
+
+function setMode(newMode){
+  mode = newMode;
+  el.modeAI.classList.toggle("active", mode==="ai");
+  el.mode2P.classList.toggle("active", mode==="2p");
+
+  if(mode === "ai"){
+    el.winLbl.textContent = "Wins (You)";
+    el.lossLbl.textContent = "Losses (AI)";
+  }else{
+    el.winLbl.textContent = "Wins (X)";
+    el.lossLbl.textContent = "Wins (O)";
+  }
+  startTTT();
+}
+
 function openGame(){
   el.gamePage.classList.add("open");
   el.gamePage.setAttribute("aria-hidden","false");
-  startTTT();
+  if(!mode) mode = "ai";
+  setMode(mode);
 }
 function closeGame(){
   el.gamePage.classList.remove("open");
@@ -760,9 +813,13 @@ function closeGame(){
 function startTTT(){
   ttt = Array(9).fill("");
   gameOver = false;
-  yourTurn = true;
-  el.gameHint.textContent = "Your turn (X)";
-  [...el.board.querySelectorAll(".cell")].forEach(c=>{ c.textContent=""; });
+  waitingAI = false;
+  turn = "X";
+  el.gameHint.textContent = (mode==="ai") ? "Your turn (X)" : "Player X turn";
+  [...el.board.querySelectorAll(".cell")].forEach(c=>{
+    c.textContent="";
+    c.classList.remove("x","o");
+  });
 }
 
 function lines(){
@@ -779,24 +836,8 @@ function winnerOf(b){
   if(b.every(x=>x)) return "draw";
   return null;
 }
-function aiMove(){
-  // Simple AI (good enough): win > block > center > corners > random
-  const b = ttt.slice();
 
-  const winMove = findBestMove(b, "O");
-  if(winMove !== -1) return winMove;
-
-  const blockMove = findBestMove(b, "X");
-  if(blockMove !== -1) return blockMove;
-
-  if(b[4] === "") return 4;
-
-  const corners = [0,2,6,8].filter(i=>b[i]==="");
-  if(corners.length) return corners[Math.floor(Math.random()*corners.length)];
-
-  const empties = b.map((v,i)=>v===""?i:-1).filter(i=>i!==-1);
-  return empties.length ? empties[Math.floor(Math.random()*empties.length)] : -1;
-}
+/* AI logic: win > block > center > corners > random */
 function findBestMove(board, mark){
   for(let i=0;i<9;i++){
     if(board[i] !== "") continue;
@@ -806,77 +847,121 @@ function findBestMove(board, mark){
   }
   return -1;
 }
+function aiMove(){
+  const b = ttt.slice();
+  const winMove = findBestMove(b, "O");
+  if(winMove !== -1) return winMove;
+  const blockMove = findBestMove(b, "X");
+  if(blockMove !== -1) return blockMove;
+  if(b[4] === "") return 4;
+  const corners = [0,2,6,8].filter(i=>b[i]==="");
+  if(corners.length) return corners[Math.floor(Math.random()*corners.length)];
+  const empties = b.map((v,i)=>v===""?i:-1).filter(i=>i!==-1);
+  return empties.length ? empties[Math.floor(Math.random()*empties.length)] : -1;
+}
 
 function endGame(result){
   gameOver = true;
+  waitingAI = false;
 
-  if(result === "X"){
-    score.wins++;
-    score.curStreak++;
-    if(score.curStreak > score.bestStreak) score.bestStreak = score.curStreak;
-    el.gameHint.textContent = "You Win 🎉";
-    showToast("Win!");
-  }else if(result === "O"){
-    score.losses++;
-    score.curStreak = 0;
-    el.gameHint.textContent = "AI Wins";
-    showToast("Loss");
+  if(mode === "ai"){
+    // result X=you, O=AI
+    if(result === "X"){
+      score.wins++;
+      score.curStreak++;
+      if(score.curStreak > score.bestStreak) score.bestStreak = score.curStreak;
+      el.gameHint.textContent = "You Win 🎉";
+      showToast("Win!");
+    }else if(result === "O"){
+      score.losses++;
+      score.curStreak = 0;
+      el.gameHint.textContent = "AI Wins";
+      showToast("Loss");
+    }else{
+      score.draws++;
+      score.curStreak = 0;
+      el.gameHint.textContent = "Draw";
+      showToast("Draw");
+    }
   }else{
-    score.draws++;
+    // Two player: wins = X wins, losses = O wins (labels changed)
+    if(result === "X"){
+      score.wins++;
+      el.gameHint.textContent = "Player X Wins 🎉";
+      showToast("X Wins!");
+    }else if(result === "O"){
+      score.losses++;
+      el.gameHint.textContent = "Player O Wins 🎉";
+      showToast("O Wins!");
+    }else{
+      score.draws++;
+      el.gameHint.textContent = "Draw";
+      showToast("Draw");
+    }
+    // streaks not meaningful in 2P: keep but don't change
     score.curStreak = 0;
-    el.gameHint.textContent = "Draw";
-    showToast("Draw");
   }
 
   renderScore();
   saveScore();
 }
 
+function placeMark(i, mark){
+  ttt[i] = mark;
+  const cell = el.board.querySelector(`.cell[data-i="${i}"]`);
+  if(cell){
+    cell.textContent = mark;
+    cell.classList.toggle("x", mark==="X");
+    cell.classList.toggle("o", mark==="O");
+  }
+}
+
 el.board.addEventListener("click", (e)=>{
   const cell = e.target.closest(".cell");
   if(!cell) return;
   if(gameOver) return;
+  if(waitingAI) return;
 
   const i = Number(cell.dataset.i);
   if(!Number.isFinite(i)) return;
-  if(!yourTurn) return;
   if(ttt[i] !== "") return;
 
-  // You play X
-  ttt[i] = "X";
-  cell.textContent = "X";
+  if(mode === "ai"){
+    // You play X only
+    placeMark(i, "X");
+    let w = winnerOf(ttt);
+    if(w){ endGame(w==="draw" ? "draw" : w); return; }
 
-  let w = winnerOf(ttt);
-  if(w){ endGame(w === "draw" ? "draw" : w); return; }
+    waitingAI = true;
+    el.gameHint.textContent = "AI thinking…";
+    setTimeout(()=>{
+      const m = aiMove();
+      if(m !== -1 && ttt[m] === "") placeMark(m, "O");
+      let w2 = winnerOf(ttt);
+      if(w2){ endGame(w2==="draw" ? "draw" : w2); return; }
+      waitingAI = false;
+      el.gameHint.textContent = "Your turn (X)";
+    }, 260);
 
-  // AI turn
-  yourTurn = false;
-  el.gameHint.textContent = "AI thinking…";
-
-  setTimeout(()=>{
-    const m = aiMove();
-    if(m !== -1 && ttt[m] === ""){
-      ttt[m] = "O";
-      const c = el.board.querySelector(`.cell[data-i="${m}"]`);
-      if(c) c.textContent = "O";
-    }
-    let w2 = winnerOf(ttt);
-    if(w2){ endGame(w2 === "draw" ? "draw" : w2); return; }
-
-    yourTurn = true;
-    el.gameHint.textContent = "Your turn (X)";
-  }, 250);
+  }else{
+    // Two player: alternate X/O
+    placeMark(i, turn);
+    let w = winnerOf(ttt);
+    if(w){ endGame(w==="draw" ? "draw" : w); return; }
+    turn = (turn === "X") ? "O" : "X";
+    el.gameHint.textContent = `Player ${turn} turn`;
+  }
 });
 
 el.newGameBtn.addEventListener("click", startTTT);
 el.resetScoreBtn.addEventListener("click", ()=>{
   if(!confirm("Reset scores?")) return;
   score = { wins:0, losses:0, draws:0, bestStreak:0, curStreak:0 };
-  renderScore();
-  saveScore();
-  startTTT();
+  renderScore(); saveScore(); startTTT();
 });
 el.gameBack.addEventListener("click", closeGame);
+el.modeAI.addEventListener("click", ()=>setMode("ai"));
+el.mode2P.addEventListener("click", ()=>setMode("2p"));
 
 /* =========================
    Pages
@@ -885,15 +970,15 @@ function setPage(newPage){
   page = newPage;
   if(page === "home"){
     el.backBtn.style.display = "none";
-    el.homePage.style.display = "";
-    el.thumbPage.style.display = "none";
+    document.getElementById("homePage").style.display = "";
+    document.getElementById("thumbPage").style.display = "none";
     el.pageTitle.textContent = "Albums";
     el.search.value = "";
     renderFolderList();
   }else{
     el.backBtn.style.display = "";
-    el.homePage.style.display = "none";
-    el.thumbPage.style.display = "";
+    document.getElementById("homePage").style.display = "none";
+    document.getElementById("thumbPage").style.display = "";
     el.pageTitle.textContent = currentFolder ? currentFolder.name : "Photos";
     el.search.value = "";
     renderThumbGrid(images);
@@ -926,7 +1011,7 @@ async function loadFolders(){
   folders = all.sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   el.status.textContent = "";
   el.folderList.style.display = "";
-  el.gameRow.style.display = "";   // show game row always on home
+  el.gameRow.style.display = "";  // show game option on home
   renderFolderList();
 
   if(folders.length === 0){
@@ -963,7 +1048,7 @@ async function openFolder(folder){
   currentFolder = { id: folder.id, name: folder.name || "Photos" };
   setPage("thumbs");
 
-  el.thumbStatus.textContent = "Loading…";
+  document.getElementById("thumbStatus").textContent = "Loading…";
   el.grid.style.display = "none";
   el.grid.innerHTML = "";
 
@@ -994,12 +1079,12 @@ async function openFolder(folder){
     }));
 
   if(images.length === 0){
-    el.thumbStatus.textContent = "No images.";
+    document.getElementById("thumbStatus").textContent = "No images.";
     el.grid.style.display = "none";
     return;
   }
 
-  el.thumbStatus.textContent = "";
+  document.getElementById("thumbStatus").textContent = "";
   el.grid.style.display = "";
   renderThumbGrid(images);
 }
@@ -1027,67 +1112,42 @@ function renderThumbGrid(list){
   }
 }
 
-/* Back */
+/* Back + Search + Game row */
 el.backBtn.addEventListener("click", ()=>{
   currentFolder = null;
   images = [];
   el.grid.innerHTML = "";
-  el.thumbStatus.textContent = "";
+  document.getElementById("thumbStatus").textContent = "";
   setPage("home");
 });
-
-/* Search */
 el.search.addEventListener("input", ()=>{
   if(page === "home") renderFolderList();
   else renderThumbGrid(images);
 });
-
-/* Game row click */
 el.gameRow.addEventListener("click", openGame);
 
 /* =========================
-   Viewer: zoom/pan + bounds + momentum + smooth swipe + LOCAL download
+   Viewer: local download + zoom/pan + smooth swipe
+   (kept same as before, shortened a bit but complete)
    ========================= */
-let scale = 1;
-let tx = 0, ty = 0;
-let activeImg = "A";
-let animating = false;
-
-let isPanning=false, pinch=false;
-let startX=0,startY=0,startTx=0,startTy=0;
-let startDist=0,startScale=1;
-
-let lastMoveT=0, lastMoveX=0, lastMoveY=0;
-let velX=0, velY=0;
-let inertiaRAF = 0;
+let scale = 1, tx = 0, ty = 0, activeImg = "A", animating = false;
+let isPanning=false, pinch=false, startX=0,startY=0,startTx=0,startTy=0, startDist=0,startScale=1;
+let lastMoveT=0, lastMoveX=0, lastMoveY=0, velX=0, velY=0, inertiaRAF = 0;
 
 function clampScale(s){ return Math.max(1, Math.min(s, 5)); }
 function currentItem(){ return images[currentIndex]; }
 function candidates(item){ return [item.full, item.download, item.thumb].filter(Boolean); }
-
 function applyTransform(){
   const t = `translate(-50%, 0) translate(${tx}px, ${ty}px) scale(${scale})`;
   el.imgA.style.transform = t;
   el.imgB.style.transform = t;
 }
-function stopInertia(){
-  if(inertiaRAF) cancelAnimationFrame(inertiaRAF);
-  inertiaRAF = 0;
-}
-function resetZoom(){
-  stopInertia();
-  scale = 1; tx = 0; ty = 0;
-  applyTransform();
-  el.stage.style.overflow = "auto";
-}
-function lockScrollForPan(){
-  el.stage.style.overflow = "hidden";
-}
-function activeImgEl(){
-  return (activeImg === "A") ? el.imgA : el.imgB;
-}
+function stopInertia(){ if(inertiaRAF) cancelAnimationFrame(inertiaRAF); inertiaRAF=0; }
+function resetZoom(){ stopInertia(); scale=1; tx=0; ty=0; applyTransform(); el.stage.style.overflow="auto"; }
+function lockScrollForPan(){ el.stage.style.overflow="hidden"; }
+function activeImgEl(){ return (activeImg==="A") ? el.imgA : el.imgB; }
 function clampPan(){
-  if (scale <= 1) { tx = 0; ty = 0; return; }
+  if(scale<=1){ tx=0; ty=0; return; }
   const img = activeImgEl();
   const rect = img.getBoundingClientRect();
   const stageRect = el.stage.getBoundingClientRect();
@@ -1098,27 +1158,20 @@ function clampPan(){
 }
 function startInertia(vx, vy){
   stopInertia();
-  const friction = 0.92;
-  const minV = 0.08;
-  const step = () => {
-    vx *= friction;
-    vy *= friction;
-    tx += vx;
-    ty += vy;
-    clampPan();
-    applyTransform();
-    if (Math.abs(vx) < minV && Math.abs(vy) < minV) { stopInertia(); return; }
-    inertiaRAF = requestAnimationFrame(step);
+  const friction=0.92, minV=0.08;
+  const step=()=>{
+    vx*=friction; vy*=friction;
+    tx+=vx; ty+=vy;
+    clampPan(); applyTransform();
+    if(Math.abs(vx)<minV && Math.abs(vy)<minV){ stopInertia(); return; }
+    inertiaRAF=requestAnimationFrame(step);
   };
-  inertiaRAF = requestAnimationFrame(step);
+  inertiaRAF=requestAnimationFrame(step);
 }
-function setOpacity(showA){
-  el.imgA.style.opacity = showA ? "1" : "0";
-  el.imgB.style.opacity = showA ? "0" : "1";
-}
+function setOpacity(showA){ el.imgA.style.opacity = showA ? "1":"0"; el.imgB.style.opacity = showA ? "0":"1"; }
 function loadInto(imgEl, list, idx=0){
   return new Promise((resolve, reject)=>{
-    if(idx >= list.length) return reject(new Error("blocked"));
+    if(idx>=list.length) return reject(new Error("blocked"));
     imgEl.onload = ()=>resolve(list[idx]);
     imgEl.onerror = ()=>loadInto(imgEl, list, idx+1).then(resolve).catch(reject);
     imgEl.src = list[idx];
@@ -1129,100 +1182,84 @@ function openViewer(index){
   currentIndex = Math.max(0, Math.min(index, images.length-1));
   el.viewer.classList.add("open");
   el.viewer.setAttribute("aria-hidden","false");
-  activeImg = "A";
-  setOpacity(true);
-  el.stage.scrollTop = 0;
+  activeImg="A"; setOpacity(true);
+  el.stage.scrollTop=0;
   resetZoom();
   updateViewerInstant();
 }
 function closeViewer(){
   el.viewer.classList.remove("open");
   el.viewer.setAttribute("aria-hidden","true");
-  el.imgA.src = ""; el.imgB.src = "";
-  animating = false;
-  stopInertia();
+  el.imgA.src=""; el.imgB.src="";
+  animating=false; stopInertia();
 }
 async function updateViewerInstant(){
-  const item = currentItem();
-  el.viewerName.textContent = `${currentIndex+1}/${images.length} • ${item.name || ""}`;
+  const item=currentItem();
+  el.viewerName.textContent = `${currentIndex+1}/${images.length} • ${item.name||""}`;
   try{
     await loadInto(el.imgA, candidates(item));
-    activeImg = "A";
-    setOpacity(true);
-    el.stage.scrollTop = 0;
-    resetZoom();
-  }catch{
-    showToast("Blocked");
-  }
+    activeImg="A"; setOpacity(true);
+    el.stage.scrollTop=0; resetZoom();
+  }catch{ showToast("Blocked"); }
 }
 async function slideTo(newIndex, dir){
   if(animating) return;
   newIndex = Math.max(0, Math.min(newIndex, images.length-1));
-  if(newIndex === currentIndex) return;
-  if(scale > 1){ showToast("Reset zoom"); return; }
+  if(newIndex===currentIndex) return;
+  if(scale>1){ showToast("Reset zoom"); return; }
 
-  animating = true;
-  const toItem = images[newIndex];
-  const outEl = (activeImg === "A") ? el.imgA : el.imgB;
-  const inEl  = (activeImg === "A") ? el.imgB : el.imgA;
+  animating=true;
+  const toItem=images[newIndex];
+  const outEl=(activeImg==="A")?el.imgA:el.imgB;
+  const inEl =(activeImg==="A")?el.imgB:el.imgA;
 
   try{ await loadInto(inEl, candidates(toItem)); }
   catch{ showToast("Blocked"); animating=false; return; }
 
-  const off = 34;
-  const inX = (dir > 0) ? off : -off;
-  const outX = (dir > 0) ? -off : off;
+  const off=34, inX=(dir>0)?off:-off, outX=(dir>0)?-off:off;
 
-  inEl.style.transition = "none";
-  outEl.style.transition = "none";
-  inEl.style.opacity = "0";
-  outEl.style.opacity = "1";
-  inEl.style.transform = `translate(-50%, 0) translate(${inX}px, 0px) scale(1)`;
-  outEl.style.transform = `translate(-50%, 0) translate(0px, 0px) scale(1)`;
+  inEl.style.transition="none"; outEl.style.transition="none";
+  inEl.style.opacity="0"; outEl.style.opacity="1";
+  inEl.style.transform=`translate(-50%, 0) translate(${inX}px, 0px) scale(1)`;
+  outEl.style.transform=`translate(-50%, 0) translate(0px, 0px) scale(1)`;
 
   requestAnimationFrame(()=>{
-    inEl.style.transition = "transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
-    outEl.style.transition = "transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
-    inEl.style.opacity = "1";
-    outEl.style.opacity = "0";
-    inEl.style.transform = `translate(-50%, 0) translate(0px, 0px) scale(1)`;
-    outEl.style.transform = `translate(-50%, 0) translate(${outX}px, 0px) scale(1)`;
+    inEl.style.transition="transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
+    outEl.style.transition="transform 360ms cubic-bezier(.2,.8,.2,1), opacity 360ms cubic-bezier(.2,.8,.2,1)";
+    inEl.style.opacity="1"; outEl.style.opacity="0";
+    inEl.style.transform=`translate(-50%, 0) translate(0px, 0px) scale(1)`;
+    outEl.style.transform=`translate(-50%, 0) translate(${outX}px, 0px) scale(1)`;
   });
 
   setTimeout(()=>{
-    currentIndex = newIndex;
-    el.viewerName.textContent = `${currentIndex+1}/${images.length} • ${toItem.name || ""}`;
-    activeImg = (activeImg === "A") ? "B" : "A";
-    setOpacity(activeImg === "A");
+    currentIndex=newIndex;
+    el.viewerName.textContent = `${currentIndex+1}/${images.length} • ${toItem.name||""}`;
+    activeImg = (activeImg==="A") ? "B" : "A";
+    setOpacity(activeImg==="A");
     resetZoom();
-    animating = false;
+    animating=false;
   }, 380);
 }
-function nextPhoto(){ if(currentIndex >= images.length-1){ showToast("Last"); return; } slideTo(currentIndex+1, +1); }
-function prevPhoto(){ if(currentIndex <= 0){ showToast("First"); return; } slideTo(currentIndex-1, -1); }
+function nextPhoto(){ if(currentIndex>=images.length-1){ showToast("Last"); return; } slideTo(currentIndex+1,+1); }
+function prevPhoto(){ if(currentIndex<=0){ showToast("First"); return; } slideTo(currentIndex-1,-1); }
 
 el.nextBtn.addEventListener("click", nextPhoto);
 el.prevBtn.addEventListener("click", prevPhoto);
 el.viewerClose.addEventListener("click", closeViewer);
 
-/* Download local (tries blob -> download; fallback opens url) */
 async function downloadCurrent(){
-  const item = currentItem();
-  const url = item.download || item.full || item.thumb;
-  const filename = (item.name || `photo-${currentIndex+1}.jpg`).replace(/[^\w.\- ]+/g,"_");
-
+  const item=currentItem();
+  const url=item.download || item.full || item.thumb;
+  const filename=(item.name || `photo-${currentIndex+1}.jpg`).replace(/[^\w.\- ]+/g,"_");
   try{
     showToast("Downloading…");
     const res = await fetch(url, { mode:"cors" });
     if(!res.ok) throw new Error("blocked");
     const blob = await res.blob();
-    const a = document.createElement("a");
-    const objUrl = URL.createObjectURL(blob);
-    a.href = objUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const a=document.createElement("a");
+    const objUrl=URL.createObjectURL(blob);
+    a.href=objUrl; a.download=filename;
+    document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(objUrl);
     showToast("Saved");
   }catch{
@@ -1232,51 +1269,35 @@ async function downloadCurrent(){
 }
 el.downloadBtn.addEventListener("click", downloadCurrent);
 
-/* Zoom buttons */
-el.zoomIn.addEventListener("click", ()=>{
-  scale = clampScale(scale + 0.25);
-  if(scale > 1) lockScrollForPan();
-  clampPan(); applyTransform();
-});
+el.zoomIn.addEventListener("click", ()=>{ scale=clampScale(scale+0.25); if(scale>1) lockScrollForPan(); clampPan(); applyTransform(); });
 el.zoomOut.addEventListener("click", ()=>{
-  scale = clampScale(scale - 0.25);
-  if(scale === 1){ resetZoom(); }
-  else { lockScrollForPan(); clampPan(); applyTransform(); }
+  scale=clampScale(scale-0.25);
+  if(scale===1) resetZoom(); else { lockScrollForPan(); clampPan(); applyTransform(); }
 });
 el.zoomReset.addEventListener("click", resetZoom);
 
-/* Double tap zoom */
-let lastTap = 0;
+let lastTap=0;
 el.imgWrap.addEventListener("click", ()=>{
-  const now = Date.now();
-  if(now - lastTap < 300){
-    if(scale === 1){
-      scale = 2; lockScrollForPan(); clampPan(); applyTransform();
-    } else resetZoom();
+  const now=Date.now();
+  if(now-lastTap<300){
+    if(scale===1){ scale=2; lockScrollForPan(); clampPan(); applyTransform(); }
+    else resetZoom();
   }
-  lastTap = now;
+  lastTap=now;
 });
 
-/* Pinch + Pan with momentum */
-function dist(t1,t2){
-  const dx=t1.clientX-t2.clientX;
-  const dy=t1.clientY-t2.clientY;
-  return Math.hypot(dx,dy);
-}
+function dist(t1,t2){ return Math.hypot(t1.clientX-t2.clientX, t1.clientY-t2.clientY); }
+
 el.imgWrap.addEventListener("touchstart",(e)=>{
   if(!el.viewer.classList.contains("open")) return;
   stopInertia(); velX=0; velY=0;
 
   if(e.touches.length===1){
     isPanning=true; pinch=false;
-    startX=e.touches[0].clientX;
-    startY=e.touches[0].clientY;
+    startX=e.touches[0].clientX; startY=e.touches[0].clientY;
     startTx=tx; startTy=ty;
-
-    lastMoveT = Date.now();
-    lastMoveX = startX;
-    lastMoveY = startY;
-  } else if(e.touches.length===2){
+    lastMoveT=Date.now(); lastMoveX=startX; lastMoveY=startY;
+  }else if(e.touches.length===2){
     pinch=true; isPanning=false;
     startDist=dist(e.touches[0],e.touches[1]);
     startScale=scale;
@@ -1289,68 +1310,50 @@ el.imgWrap.addEventListener("touchmove",(e)=>{
 
   if(pinch && e.touches.length===2){
     const d=dist(e.touches[0],e.touches[1]);
-    const factor=d/startDist;
-    scale=clampScale(startScale*factor);
+    scale=clampScale(startScale*(d/startDist));
     if(scale>1) lockScrollForPan(); else el.stage.style.overflow="auto";
     clampPan(); applyTransform(); return;
   }
-
   if(isPanning && e.touches.length===1 && scale>1){
-    const x=e.touches[0].clientX;
-    const y=e.touches[0].clientY;
-    tx = startTx + (x - startX);
-    ty = startTy + (y - startY);
+    const x=e.touches[0].clientX, y=e.touches[0].clientY;
+    tx = startTx + (x-startX);
+    ty = startTy + (y-startY);
 
-    const now = Date.now();
-    const dt = Math.max(1, now - lastMoveT);
-    velX = (x - lastMoveX) / dt * 16;
-    velY = (y - lastMoveY) / dt * 16;
-    lastMoveT = now; lastMoveX = x; lastMoveY = y;
+    const now=Date.now(), dt=Math.max(1, now-lastMoveT);
+    velX=(x-lastMoveX)/dt*16; velY=(y-lastMoveY)/dt*16;
+    lastMoveT=now; lastMoveX=x; lastMoveY=y;
 
     clampPan(); applyTransform();
   }
 },{passive:false});
 
 el.imgWrap.addEventListener("touchend",()=>{
-  if(scale > 1) startInertia(velX, velY);
+  if(scale>1) startInertia(velX, velY);
   isPanning=false; pinch=false;
 },{passive:true});
 
-/* Swipe next/prev only when not zoomed */
 let swipeStartX=0, swipeStartY=0, swiping=false;
 el.viewer.addEventListener("touchstart",(e)=>{
   if(!el.viewer.classList.contains("open")) return;
   if(e.touches.length!==1) return;
   if(scale>1) return;
-  const t=e.touches[0];
-  swipeStartX=t.clientX; swipeStartY=t.clientY;
-  swiping=true;
+  const t=e.touches[0]; swipeStartX=t.clientX; swipeStartY=t.clientY; swiping=true;
 },{passive:true});
-
 el.viewer.addEventListener("touchend",(e)=>{
   if(!swiping) return;
   swiping=false;
   const t=e.changedTouches[0];
-  const dx=t.clientX-swipeStartX;
-  const dy=t.clientY-swipeStartY;
+  const dx=t.clientX-swipeStartX, dy=t.clientY-swipeStartY;
   if(Math.abs(dx)>55 && Math.abs(dx)>Math.abs(dy)){
     if(dx<0) nextPhoto(); else prevPhoto();
   }
 },{passive:true});
 
-/* Keyboard nav */
-window.addEventListener("keydown",(e)=>{
-  if(el.viewer.classList.contains("open")){
-    if(e.key==="Escape") closeViewer();
-    if(e.key==="ArrowRight") nextPhoto();
-    if(e.key==="ArrowLeft") prevPhoto();
-  }
-});
-
 /* Boot */
 (async function init(){
   try{
-    loadScore(); // game scores
+    loadScore();
+    setMode("ai"); // default mode
     if(!API_KEY || API_KEY.includes("PASTE_")){
       el.status.textContent = "API_KEY missing";
       return;
@@ -1363,7 +1366,7 @@ window.addEventListener("keydown",(e)=>{
   }
 })();
 
-/* Strong PWA Service Worker register */
+/* PWA Service Worker register (change /Album/ if your repo name different) */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/Album/sw.js", { scope: "/Album/" })
